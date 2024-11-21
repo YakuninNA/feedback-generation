@@ -1,0 +1,47 @@
+version: '3.12'
+
+services:
+  app:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    container_name: gen_service_app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    container_name: arq_worker_app
+    volumes:
+      - ./src:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    command: arq genservice.arq_worker.WorkerSettings
+
+  redis:
+    image: redis:6.2
+    container_name: redis_queue
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
